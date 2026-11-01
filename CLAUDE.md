@@ -13,7 +13,7 @@ A knowledge base assistant. Users upload PDF, Word, and Markdown files. They ask
   - Supabase Auth.
   - Supabase Storage, for the original uploaded files.
 - **ORM**: Drizzle, with drizzle-kit for migrations. `.env.example` already has `DATABASE_URL` and `DIRECT_URL` (the direct URL is for drizzle-kit, via the Supabase session pooler).
-- **LLM and embeddings**: Google Gemini, called through the Vercel AI SDK (`ai` + `@ai-sdk/google`). `.env.example` already has `GOOGLE_GENERATIVE_AI_API_KEY`. Both answer generation and embeddings use Gemini — no OpenAI or Anthropic API in the app itself.
+- **LLM and embeddings**: Google Gemini, called through the Vercel AI SDK (`ai` + `@ai-sdk/google`). `.env.example` already has `GOOGLE_GENERATIVE_AI_API_KEY`. Both answer generation and embeddings use Gemini — no OpenAI or Anthropic API in the app itself. Embedding model: `gemini-embedding-2` at 768 dimensions (`outputDimensionality: 768`) — Google's recommended smaller size, auto-normalized by this model (unlike the older `gemini-embedding-001`, where only the 3072 default is pre-normalized). `text-embedding-004` is deprecated (retired January 2026) — do not use it.
 - **UI components**: shadcn, `base-nova` style (built on `@base-ui/react`, not Radix), plus `class-variance-authority` for variants, `lucide-react` for icons, `tw-animate-css` for animations.
 - **Git hooks**: husky + lint-staged (`*.{js,jsx,ts,tsx}` → `eslint --fix`) + gitleaks. Gitleaks is a system binary, not an npm package — install it locally with `brew install gitleaks` (or the equivalent for your OS), and install it separately in CI too. The pre-commit hook runs `gitleaks protect --staged --redact --no-banner`, which only scans staged changes and can be bypassed with `--no-verify`; CI should run a full-history scan separately.
 
@@ -21,21 +21,27 @@ Setup history and commands are logged in [_notes/0_setup.md](_notes/0_setup.md).
 
 ## Current state: done vs. planned
 
-**Done**: Next.js scaffold, Tailwind v4, husky/lint-staged/gitleaks pre-commit hook.
+**Done**: Next.js scaffold, Tailwind v4, husky/lint-staged/gitleaks pre-commit hook, shadcn components, Supabase project created (real `DATABASE_URL`/`DIRECT_URL`/Supabase keys are in `.env`), Drizzle schema + migrations generated (`lib/db/schema.ts`, `drizzle/`) — `npm run db:generate` / `db:migrate` / `db:push` / `db:studio` are wired up. Drizzle version: `drizzle-orm`/`drizzle-kit` `@rc` (1.0.0-rc.5), per current official docs, not the `latest` npm tag (0.x).
+
+Migrations have been applied to the Supabase database: `vector` extension (0.8.2), `documents` and `chunks` tables, and the `hnsw` cosine index on `chunks.embedding` all exist.
 
 **Planned, not yet done** (check before assuming these exist):
-- Supabase project created, `pgvector` extension enabled.
-- Drizzle schema and first migration.
-- shadcn `components.json` — the `npx shadcn add ...` commands in `_notes/0_setup.md` have not been run yet; `components.json` does not exist in the repo.
 - Dependencies: `ai`, `@ai-sdk/google`, `@supabase/supabase-js`.
 - Ingestion and RAG application code.
 
 ## Draft data model (Drizzle schema, not yet implemented)
 
 - `documents`: id, user_id, filename, storage_path, mime_type, status (processing/ready/failed), created_at
-- `chunks`: id, document_id, chunk_index, content, embedding vector(N), metadata (page/heading), created_at
+- `chunks`: id, document_id, chunk_index, content, embedding vector(768), metadata (page/heading), created_at
 
 Citations are not a separate table — look up the parent document from the matched chunk at query time.
+
+## User roles
+
+- **Anonymous user**: not signed in. Can only try the product and use limited public features — no personal knowledge base, no saved conversations.
+- **Authenticated user**: signed in. Can use a personal or organization knowledge base, manage documents, have conversations saved, and view usage history.
+
+This means Supabase Auth is needed from the start, not deferred — `documents` and any saved conversations are scoped to an authenticated user, not anonymous. See [_notes/4_auth.md](_notes/4_auth.md) for the Supabase Auth implementation notes (carried over from a prior project, as a reference pattern — not yet adapted to this one).
 
 ## RAG flow
 
@@ -67,8 +73,3 @@ drizzle.config.ts
 ## Git rules
 
 The coding agent must not commit code. After making changes, stop and let the user review the diff. Only commit when the user explicitly asks for it.
-
-## Open decisions
-
-- Exact Gemini embedding model (e.g. `text-embedding-004`).
-- When to wire up Supabase Auth: get single-user RAG working first, or add per-user isolation now.

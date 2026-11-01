@@ -1,5 +1,8 @@
 # Supabase Auth
 
+Anonymous User：只能体验产品和使用有限的公开功能。
+Authenticated User： 可以使用管理文档、保存对话和查看使用记录。
+
 ```sh
 npm install @supabase/supabase-js @supabase/ssr
 ```
