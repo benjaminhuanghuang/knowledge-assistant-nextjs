@@ -1,5 +1,7 @@
 import { MessageSquare, Plus, Send } from "lucide-react";
+import { Suspense } from "react";
 
+import { requireUser } from "@/lib/auth/dal";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -9,9 +11,20 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={<ChatSkeleton />}>
+      <ChatContent />
+    </Suspense>
+  );
+}
+
+async function ChatContent() {
+  await requireUser();
+
   return (
     <div className="flex flex-1">
       <aside className="hidden w-64 flex-col gap-2 border-r p-4 sm:flex">
@@ -54,6 +67,14 @@ export default function ChatPage() {
           </Button>
         </form>
       </div>
+    </div>
+  );
+}
+
+function ChatSkeleton() {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <Spinner className="size-6" />
     </div>
   );
 }

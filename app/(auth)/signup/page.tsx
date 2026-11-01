@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -8,8 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+
+import { SignupForm } from "./signup-form";
 
 export default function SignupPage() {
   return (
@@ -22,38 +21,13 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input id="email" name="email" type="email" required />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="confirm-password">
-                  Confirm password
-                </FieldLabel>
-                <Input
-                  id="confirm-password"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                />
-              </Field>
-              <Button type="submit">Sign up</Button>
-            </FieldGroup>
-          </form>
+          <SignupForm />
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+            <Link
+              href="/login"
+              className="text-primary underline-offset-4 hover:underline"
+            >
               Log in
             </Link>
           </p>

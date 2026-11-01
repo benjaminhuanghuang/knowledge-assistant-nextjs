@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { AuthButtons, AuthButtonsSkeleton } from "@/components/auth-buttons";
 
 const navLinks = [
   { href: "/demo", label: "Demo" },
@@ -26,14 +27,9 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" nativeButton={false} render={<Link href="/login" />}>
-            Log in
-          </Button>
-          <Button nativeButton={false} render={<Link href="/signup" />}>
-            Sign up
-          </Button>
-        </div>
+        <Suspense fallback={<AuthButtonsSkeleton />}>
+          <AuthButtons />
+        </Suspense>
       </div>
     </header>
   );

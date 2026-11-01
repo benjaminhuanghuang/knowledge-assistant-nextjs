@@ -21,13 +21,26 @@ Setup history and commands are logged in [_notes/0_setup.md](_notes/0_setup.md).
 
 ## Current state: done vs. planned
 
-**Done**: Next.js scaffold, Tailwind v4, husky/lint-staged/gitleaks pre-commit hook, shadcn components, Supabase project created (real `DATABASE_URL`/`DIRECT_URL`/Supabase keys are in `.env`), Drizzle schema + migrations generated (`lib/db/schema.ts`, `drizzle/`) — `npm run db:generate` / `db:migrate` / `db:push` / `db:studio` are wired up. Drizzle version: `drizzle-orm`/`drizzle-kit` `@rc` (1.0.0-rc.5), per current official docs, not the `latest` npm tag (0.x).
+**Done**: Next.js scaffold, Tailwind v4, husky/lint-staged/gitleaks pre-commit hook, shadcn components, Supabase project created (real `DATABASE_URL`/`DIRECT_URL`/Supabase keys are in `.env`), Drizzle schema + migrations generated (`lib/db/schema.ts`, `drizzle/`) — `npm run db:generate` / `db:migrate` / `db:push` / `db:studio` are wired up. Drizzle version: `drizzle-orm`/`drizzle-kit` `@rc` (1.0.0-rc.5), per current official docs, not the `latest` npm tag (0.x). All 6 pages scaffolded (`/`, `/demo`, `/(auth)/login`, `/(auth)/signup`, `/knowledge-base`, `/chat`) with shadcn components, no custom edits to `components/ui/*`. Supabase Auth is implemented (see below).
 
 Migrations have been applied to the Supabase database: `vector` extension (0.8.2), `documents` and `chunks` tables, and the `hnsw` cosine index on `chunks.embedding` all exist.
 
 **Planned, not yet done** (check before assuming these exist):
-- Dependencies: `ai`, `@ai-sdk/google`, `@supabase/supabase-js`.
-- Ingestion and RAG application code.
+- Dependencies: `ai`, `@ai-sdk/google`.
+- Upload, ingestion, and RAG application code (route handlers, parsing, chunking, embedding, retrieval). The knowledge-base/chat pages are still static placeholders behind the auth gate.
+
+## Auth implementation
+
+Email/password via Supabase Auth, `@supabase/ssr` (not the deprecated `get`/`set`/`remove` cookie API — use `getAll`/`setAll`).
+
+- `lib/supabase/client.ts` — browser client (`createBrowserClient`), for Client Components.
+- `lib/supabase/server.ts` — server client (`createServerClient`), for Server Components/Actions. `setAll` is wrapped in try/catch because Server Components can't write cookies — `proxy.ts` is what actually persists a refreshed session.
+- `proxy.ts` (project root, **not** `middleware.ts` — Next.js 16 renamed it; see the "NOT the Next.js you know" note at the top of this file) — refreshes the Supabase session every request via `getClaims()`, writes the refreshed cookies back, and does the *optimistic* redirect (unauthenticated → `/login`) for `/knowledge-base` and `/chat`. Proxy checks are not the real security boundary — see DAL below.
+- `lib/auth/dal.ts` — the actual authorization boundary. `getOptionalUser()` reads `getClaims()` inside a `'use cache: private'` scope (required because `cacheComponents` is on — `cookies()`/`headers()` can't be read in a plain Server Component or `use cache` function). `requireUser()` calls it and redirects to `/login` if there's no user. Every protected page/action must call one of these itself — the proxy redirect is a fast path, not a substitute.
+- `lib/actions/auth.ts` — `login`/`signup`/`logout` Server Actions, validated with `zod`. `signup` checks `data.session`: if Supabase's "Confirm email" setting is on (it is, on this project — confirmed by testing), a fresh signup has no session until the user clicks the confirmation email, so it shows a "check your email" message instead of redirecting.
+- Any Server Component that calls `getOptionalUser()`/`requireUser()` must be wrapped in `<Suspense>` (reading `cookies()` outside a boundary is a Cache Components build error) — see `components/auth-buttons.tsx` (used in `components/site-header.tsx`) and the `*Content`/`Suspense` split in `app/knowledge-base/page.tsx` and `app/chat/page.tsx` for the pattern. Don't read the session at the top of a layout — push it down into a nested component, or the whole segment blocks on it.
+
+Not yet done: email confirmation currently has no custom UI (relies on Supabase's default confirmation email), and there's no password reset flow.
 
 ## Draft data model (Drizzle schema, not yet implemented)
 
@@ -49,19 +62,26 @@ This means Supabase Auth is needed from the start, not deferred — `documents` 
 
 **Query**: question → embed with Gemini → pgvector similarity search, top-k chunks → build a prompt that marks each source → stream the answer with Gemini `streamText` (AI SDK), and return the matched chunks' source documents as citations alongside the stream.
 
-## Planned directory layout
+## Directory layout
 
 ```
-app/api/upload/route.ts
-app/api/chat/route.ts
-app/documents/page.tsx
-app/page.tsx
-lib/db/{schema,client}.ts
-lib/supabase/{server,client}.ts
-lib/ingestion/{pdf,docx,markdown,chunk}.ts
-lib/rag/{retrieve,prompt}.ts
-drizzle/            # migrations
-drizzle.config.ts
+app/page.tsx                    # landing
+app/demo/page.tsx                # anonymous demo chat (static example, no backend yet)
+app/(auth)/login/{page,login-form}.tsx
+app/(auth)/signup/{page,signup-form}.tsx
+app/knowledge-base/page.tsx      # gated, still a static placeholder
+app/chat/page.tsx                # gated, still a static placeholder
+app/api/upload/route.ts          # planned
+app/api/chat/route.ts            # planned
+proxy.ts                         # done — optimistic auth redirect + session refresh
+lib/db/{schema,client}.ts        # done
+lib/supabase/{server,client}.ts  # done
+lib/auth/dal.ts                  # done
+lib/actions/auth.ts              # done
+lib/ingestion/{pdf,docx,markdown,chunk}.ts  # planned
+lib/rag/{retrieve,prompt}.ts     # planned
+drizzle/                         # migrations, done
+drizzle.config.ts                # done
 ```
 
 ## Design and implementation principles
