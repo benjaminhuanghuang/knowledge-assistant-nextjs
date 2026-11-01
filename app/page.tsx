@@ -39,10 +39,15 @@ export default function Home() {
           natural language. Get answers with citations back to the source.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button size="lg" render={<Link href="/demo" />}>
+          <Button size="lg" nativeButton={false} render={<Link href="/demo" />}>
             Try the demo
           </Button>
-          <Button size="lg" variant="outline" render={<Link href="/login" />}>
+          <Button
+            size="lg"
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/login" />}
+          >
             Log in
           </Button>
         </div>
